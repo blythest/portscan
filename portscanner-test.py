@@ -1,11 +1,10 @@
 import sys, socket, ipaddress
  
    
-#function to return number of hosts in a given subnet
+# return the number of hosts in a given subnet
 def numHosts(subnet):
     if "." in subnet:
-        print 'the subnet is', subnet
-        print ". is in subnet",subnet
+        
         # split up the address - will return something like [255,255,255,0]   
         
         subnetlist = subnet.split(".")
@@ -19,17 +18,18 @@ def numHosts(subnet):
 
         cidr = str(subnetlist).count("1")
 
-        # num of networks = 2^n - 2, expressed a cidr number. 
+        # num of networks = 2^n - 2, expressed as a cidr number. 
 
         # subnet mask is a count of how many 1's are in an ip. 255.255.255.255 = 32 1's
         
         # if the cidr number is between 31 and 32, then most significant bits look like this:
+        
         #       11111111 11111111 11111111 11111111 or
         #       11111111 11111111 11111111 11111110
         
-        # so, bit available for host addressing is going to be 0 or 1. 
-        # otherwise, subtract 2 from the number of significant bits to account for the leading 2. 
-        # that are part of the prefix.   
+        # so, the bit available for host addressing is going to be 0 or 1. 
+        # otherwise, subtract 2 from the number of significant bits to account for the 2 bits
+        # reserved for the network id and broadcast address (all 0's or all 1's). 
         
         if (int(cidr) == 32) or (int(cidr) == 31): 
             hostsCount = 2**(32-int(cidr)) 
@@ -39,7 +39,7 @@ def numHosts(subnet):
    
     return hostsCount
  
-#function to generate a list with all hosts in the given subnet
+# generate a list with all hosts in the given subnet
 def listHosts(ip, hostsCount):
 
     counter = 1
@@ -87,10 +87,10 @@ def listHosts(ip, hostsCount):
 
             # append these new octet groupings to the host list, and increment the counter by 1.
             counter = int(counter)+1
-    print 'hosts ', hosts
+    print hosts
     return hosts
  
-#start sending icmp echo requests and list received icmp echo responds    
+# start sending icmp echo requests and list received icmp echo responds    
 def pingscan(values):
     hostsCount = None
     if ("-t" in values):
@@ -106,9 +106,8 @@ def pingscan(values):
         sys.exit(0)
                
     if hostsCount is not None:      
-        print "Checking if %d hosts are alive via icmp with a timeout of %f sec" % (hostsCount, timeout)
-           
-        #create list with all hosts in the given subnet
+        print "Checking if %d hosts are alive via icmp with a timeout of %f sec" % (hostsCount, timeout)   
+        # create list with all hosts in the given subnet
         hosts = listHosts(values[1], hostsCount)
         return hosts
     
@@ -123,7 +122,7 @@ def getIP():
 if __name__== "__main__":
 
     ip = getIP()
-    subnetmask = str(ipaddress.ip_network(ip).netmask)
+    subnetmask = '255.255.255.0'
     values = [ip, subnetmask]
     pingscan(values)
 
