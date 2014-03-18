@@ -1,6 +1,6 @@
-import sys, socket, ipaddress
+import sys, socket, select, ipaddress, scapy
  
-   
+
 # return the number of hosts in a given subnet
 def numHosts(subnet):
     if "." in subnet:
@@ -10,27 +10,34 @@ def numHosts(subnet):
         subnetlist = subnet.split(".")
         
         for subnetpart in subnetlist:
-            # convert the value of the first subnet part into binary and scrap the 0b's
-            # find the index of wherever the first subnetpart appears
-            # assign the binary value to that index in the subnet list
+            
+            """
+            convert the value of the first subnet part into binary and scrap the 0b's
+            find the index of wherever the first subnetpart appears
+            assign the binary value to that index in the subnet list
+            """
 
             subnetlist[subnetlist.index(subnetpart)] = bin(int(subnetpart)).replace("0b","")
 
         cidr = str(subnetlist).count("1")
 
-        # num of networks = 2^n - 2, expressed as a cidr number. 
+        """
+        num of networks = 2^n - 2, expressed as a cidr number. 
 
-        # subnet mask is a count of how many 1's are in an ip. 255.255.255.255 = 32 1's
+        subnet mask is a count of how many 1's are in an ip. 255.255.255.255 = 32 1's
         
-        # if the cidr number is between 31 and 32, then most significant bits look like this:
+        if the cidr number is between 31 and 32, then most significant bits look like this:
         
-        #       11111111 11111111 11111111 11111111 or
-        #       11111111 11111111 11111111 11111110
+              11111111 11111111 11111111 11111111 or
+              11111111 11111111 11111111 11111110
         
-        # so, the bit available for host addressing is going to be 0 or 1. 
-        # otherwise, subtract 2 from the number of significant bits to account for the 2 bits
-        # reserved for the network id and broadcast address (all 0's or all 1's). 
-        
+        so, the bit available for host addressing is going to be 0 or 1. 
+        otherwise, subtract 2 from the number of significant bits to account for the
+        network id and broadcast address. network id is the lowest # allowed by the netmask
+        broadcast is usually the highest, though not necessarily. 
+        these use up two IP's for all the possible subnets in the network
+        """
+
         if (int(cidr) == 32) or (int(cidr) == 31): 
             hostsCount = 2**(32-int(cidr)) 
             # hostsCount will either be 2^0 = 1 or 2^1 = 2
@@ -87,29 +94,66 @@ def listHosts(ip, hostsCount):
 
             # append these new octet groupings to the host list, and increment the counter by 1.
             counter = int(counter)+1
-    print hosts
     return hosts
  
 # start sending icmp echo requests and list received icmp echo responds    
 def pingscan(values):
     hostsCount = None
-    if ("-t" in values):
-        timeout = float(values[values.index('-t')+1])/float(1000)
-        values.pop(values.index('-t')+1)            
-        values.pop(values.index('-t'))
-    else:
-        timeout = 0.01
-  
+    
     if (len(values) == 2) and ("." in values[1]):
         hostsCount = numHosts(values[1])
     else:
         sys.exit(0)
                
-    if hostsCount is not None:      
+    if hostsCount is not None:   
+        timeout = float(5)
         print "Checking if %d hosts are alive with a timeout of %f sec" % (hostsCount, timeout)   
         # create list with all hosts in the given subnet
         hosts = listHosts(values[1], hostsCount)
+
+        for host in hosts:            
+            try:
+                # create a socket with the raw protocol (as opposed to IP or UDP)       
+                icmpsocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+                # icmpsocket.bind(('', 1))
+                # icmpsocket.setblocking(0)
+            except socket.error:
+                print "You need to be root!"
+                sys.exit(0)
+
+            #send icmp echo request to all hosts in the hosts list
+            icmpsocket.connect((host, 1))
+            # generate packets
+            pkt = IP(dst='10.1.10.57')/ICMP()
+            sentPkt = sendp(pkt)
+
+            """
+                #receive icmp echo reply packets
+                # the triple = three objects that are waiting 
+                # wait for the icmpsocket to be ready for reading
+                # waiting until a blank list is ready for writing
+                # waiting until some exception
+            
+            this code receives the response data 
+            """
+            ready = select.select([icmpsocket],[],[],timeout)  
+            # print ready[0] 
+            if ready:             
+                try :
+                    data = icmpsocket.recv(1024)
+                    header = data[:20]
+                    ip = header[-8:-4]
+                    source = '%i.%i.%i.%i' % (ord(ip[0]), ord(ip[1]), ord(ip[2]), ord(ip[3]))
+                    print '%s seems to be alive' % source
+                except KeyboardInterrupt :
+                    print 'Keyboard Interrupt'
+                    icmpsocket.close()
+            icmpsocket.close()
+        """
+         for host in hosts, send/receive packet to each
+         """
         return hosts
+
     
 def getIP():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -123,6 +167,7 @@ if __name__== "__main__":
 
     ip = getIP()
     subnetmask = '255.255.255.0'
+    
     values = [ip, subnetmask]
     pingscan(values)
 
