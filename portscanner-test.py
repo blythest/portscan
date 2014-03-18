@@ -124,7 +124,7 @@ def pingscan(values):
             #send icmp echo request to all hosts in the hosts list
             icmpsocket.connect((host, 1))
             # generate packets
-            pkt = IP(dst='10.1.10.57')/ICMP()
+            pkt = scapy.IP(dst='10.1.10.57')/ICMP()
             sentPkt = sendp(pkt)
 
             """
