@@ -4,7 +4,7 @@ import sys, socket, ipaddress
 # return the number of hosts in a given subnet
 def numHosts(subnet):
     if "." in subnet:
-        
+
         # split up the address - will return something like [255,255,255,0]   
         
         subnetlist = subnet.split(".")
@@ -106,7 +106,7 @@ def pingscan(values):
         sys.exit(0)
                
     if hostsCount is not None:      
-        print "Checking if %d hosts are alive via icmp with a timeout of %f sec" % (hostsCount, timeout)   
+        print "Checking if %d hosts are alive with a timeout of %f sec" % (hostsCount, timeout)   
         # create list with all hosts in the given subnet
         hosts = listHosts(values[1], hostsCount)
         return hosts
